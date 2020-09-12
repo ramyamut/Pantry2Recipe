@@ -9,23 +9,85 @@ app.set('view engine', 'ejs');
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({ extended: true }));
 
+var fs = require('fs');
+let rawdata = fs.readFileSync('recipe_data.json');
+let recipes = JSON.parse(rawdata);
+var indian = recipes.indian;
+var mexican = recipes.mexican;
+var asian = recipes.asian;
+var italian = recipes.italian;
+
 // import the Person class from Person.js
 var Person = require('./Person.js');
+var Recipe = require('./Recipe.js');
 
-//import the Worker class from Worker.js
-var Worker = require('./Worker.js');
+indian.forEach((recipe) => {
+    var newRecipe = new Recipe ({
+		instructions: recipe.instructions,
+		ingredients: recipe.ingredients,
+		title: recipe.title,
+        cuisine: 'indian'
+    });
+    newRecipe.save((err)=> {
+        if(err) {
+            console.log('error loading indian recipes');
+        }
+    });
+});
 
+mexican.forEach((recipe) => {
+    var newRecipe = new Recipe ({
+		instructions: recipe.instructions,
+		ingredients: recipe.ingredients,
+		title: recipe.title,
+        cuisine: 'mexican'
+    });
+    newRecipe.save((err)=> {
+        if(err) {
+            console.log('error loading mexican recipes');
+        }
+    });
+});
 
-// route for creating a new healthcare worker
-app.use('/createWorker', (req, res) => {
-	var newWorker = new Worker ({
+asian.forEach((recipe) => {
+    var newRecipe = new Recipe ({
+		instructions: recipe.instructions,
+		ingredients: recipe.ingredients,
+		title: recipe.title,
+        cuisine: 'asian'
+    });
+    newRecipe.save((err)=> {
+        if(err) {
+            console.log('error loading asian recipes');
+        }
+    });
+});
+
+italian.forEach((recipe) => {
+    var newRecipe = new Recipe ({
+		instructions: recipe.instructions,
+		ingredients: recipe.ingredients,
+		title: recipe.title,
+        cuisine: 'italian'
+    });
+    newRecipe.save((err)=> {
+        if(err) {
+            console.log('error loading italian recipes');
+        }
+    });
+});
+
+// route for creating a new account
+app.use('/createPerson', (req, res) => {
+	var newPerson = new Person ({
 		firstname: req.query.firstname,
 		lastname: req.query.lastname,
 		username: req.query.username,
-        passwordHash: req.query.passwordHash
+        passwordHash: req.query.passwordHash,
+        ingredients: []
     });
-    console.log('createWorker called');
-    newWorker.save((err)=> {
+    console.log('createPerson called');
+    newPerson.save((err)=> {
         if(err) {
             res.json({'status': err});
         } else {
@@ -34,161 +96,84 @@ app.use('/createWorker', (req, res) => {
     });
 });
 
-app.use('/getWorker', (req, res) => {
+// route for adding an ingredient
+app.use('/addIngredient', (req, res) => {
     var queryObj = {username: req.query.username};
-    Worker.findOne(queryObj, (err, worker)=> {
+    var ingredient = req.query.ingredient;
+    Person.findOne(queryObj, (err, person)=> {
         if(err) {
             res.json({'status': err});
-        } else if(!worker) {
+        } else if(!person) {
+            res.json({'status': 'no account found'})
+        } else {
+            if(person.ingredients.contains(ingredient)) {
+                res.json({'status': 'ingredient already in pantry'})
+            } else {
+                person.ingredients = person.ingredients.push(ingredient);
+                person.save((err) => {
+                    if(err) {
+                        res.json({'status': err});
+                    } else {
+                        res.json({'status': 'success'});
+                    }
+                });
+            }
+        }
+    });
+});
+
+// route for removing an ingredient
+app.use('/removeIngredient', (req, res) => {
+    var queryObj = {username: req.query.username};
+    var ingredient = req.query.ingredient;
+    Person.findOne(queryObj, (err, person)=> {
+        if(err) {
+            res.json({'status': err});
+        } else if(!person) {
+            res.json({'status': 'no account found'})
+        } else {
+            if(person.ingredients.contains(ingredient)) {
+                person.ingredients = person.ingredients.filter(ing => {
+                    return ing != ingredient;
+                });
+                person.save((err) => {
+                    if(err) {
+                        res.json({'status': err});
+                    } else {
+                        res.json({'status': 'success'});
+                    }
+                });
+            } else {
+                res.json({'status': 'ingredient not in pantry'})
+            }
+        }
+    });
+});
+
+app.use('/getPerson', (req, res) => {
+    var queryObj = {username: req.query.username};
+    Person.findOne(queryObj, (err, person)=> {
+        if(err) {
+            res.json({'status': err});
+        } else if(!person) {
             res.json({'status': 'no worker found'})
         } else {
-            res.json(worker);
+            res.json(person);
         }
     });
 });
 
-app.use('/createPerson', (req, res)=> {
-    var newPerson = new Person ({
-        id: req.query.idNum,
-        firstname: req.query.firstname,
-        lastname: req.query.lastname,
-        phonenumber: req.query.phonenumber,
-        region: req.query.region,
-        testpos: req.query.testpos
-    });
-
-    newPerson.save((err) => {
+app.use('/getAllRecipes', (req, res) => {
+		
+    // find all the Recipe objects in the database
+    Recipe.find({}, (err, recipes) => {
         if (err) {
-            res.json({'status': err})
-        } else {
-            res.json({'status': 'success'});
+            res.json({});
         }
-    })
-});
-
-app.use('/alert', (req, res)=> {
-    var queryObj = {id: req.query.idNum};
-    const accountSid = 'AC69907a0d2d76d94ca05a3d3d843ab99f';
-    const authToken = '23e8fa3cad484ff9cbf0ea7ba77601a3';
-    const twilioClient = require('twilio')(accountSid, authToken);
-    Person.findOne(queryObj, (err, person) => {
-        if(err) {
-            console.log(err);
-            res.json({'status': err});
-        } else if(!person) {
-            res.json({'status': 'no person found'});
-        } else if(person.testpos) {
-            res.json({'status': 'already tested positive'});
-        } else {
-            person.testpos = true;
-            var region = person.region;
-            Person.find({'region': region}, (err2, matches)=> {
-                if(err2) {
-                    console.log(err2);
-                    res.json({'status': err2});
-                } else {
-                    matches.forEach((match)=> {
-                        var numberToSend = '+1' + match.phonenumber;
-                        twilioClient.messages.create({
-                            body: 'Warning: Someone in your region has just tested positive for COVID-19!',
-                            from: '+18593502238',
-                            to: numberToSend
-                        }).then(message => console.log(message.sid));
-                    })
-                }
-            });
-            person.save((err3) => {
-                if(err3) {
-                    console.log(err3);
-                    res.json({'status': err3});
-                } else {
-                    res.json({'status': 'success'});
-                }
-            })
+        else {
+            res.json(recipes);
         }
-    })
-});
-
-app.use('/individualAlertPos', (req, res)=> {
-    var queryObj = {id: req.query.idNum};
-    const accountSid = 'AC69907a0d2d76d94ca05a3d3d843ab99f';
-    const authToken = '23e8fa3cad484ff9cbf0ea7ba77601a3';
-    const twilioClient = require('twilio')(accountSid, authToken);
-    Person.findOne(queryObj, (err, person) => {
-        if(err) {
-            console.log(err);
-            res.json({'status': err});
-        } else if(!person) {
-            res.json({'status': 'no person found'});
-        } else if(person.testpos) {
-            res.json({'status': 'already tested positive'});
-        } else {
-            person.testpos = true;
-            var numberToSend = '+1' + person.phonenumber;
-            if(result) {
-                twilioClient.messages.create({
-                    body: 'You have tested positive for COVID-19! Please stay safe and seek care if needed.',
-                    from: '+18593502238',
-                    to: numberToSend
-                }).then(message => console.log(message.sid));
-            } else {
-                twilioClient.messages.create({
-                    body: 'You have tested negative for COVID-19!',
-                    from: '+18593502238',
-                    to: numberToSend
-                }).then(message => console.log(message.sid));
-            }
-            person.save((err3) => {
-                if(err3) {
-                    console.log(err3);
-                    res.json({'status': err3});
-                } else {
-                    res.json({'status': 'success'});
-                }
-            })
-        }
-    })
-});
-
-app.use('/individualAlertNeg', (req, res)=> {
-    var queryObj = {id: req.query.idNum};
-    const accountSid = 'AC69907a0d2d76d94ca05a3d3d843ab99f';
-    const authToken = '23e8fa3cad484ff9cbf0ea7ba77601a3';
-    const twilioClient = require('twilio')(accountSid, authToken);
-    Person.findOne(queryObj, (err, person) => {
-        if(err) {
-            console.log(err);
-            res.json({'status': err});
-        } else if(!person) {
-            res.json({'status': 'no person found'});
-        } else if(person.testpos) {
-            res.json({'status': 'already tested positive'});
-        } else {
-            person.testpos = false;
-            var numberToSend = '+1' + person.phonenumber;
-            if(result) {
-                twilioClient.messages.create({
-                    body: 'You have tested positive for COVID-19! Please stay safe and seek care if needed.',
-                    from: '+18593502238',
-                    to: numberToSend
-                }).then(message => console.log(message.sid));
-            } else {
-                twilioClient.messages.create({
-                    body: 'You have tested negative for COVID-19!',
-                    from: '+18593502238',
-                    to: numberToSend
-                }).then(message => console.log(message.sid));
-            }
-            person.save((err3) => {
-                if(err3) {
-                    console.log(err3);
-                    res.json({'status': err3});
-                } else {
-                    res.json({'status': 'success'});
-                }
-            })
-        }
-    })
+    });
 });
 
 app.use('/getAllPeople', (req, res) => {
@@ -204,29 +189,6 @@ app.use('/getAllPeople', (req, res) => {
     });
 });
 
-app.use('/getAllWorkers', (req, res) => {
-		
-    // find all the Worker objects in the database
-    Worker.find({}, (err, workers) => {
-        if (err) {
-            res.json({});
-        }
-        else {
-            res.json(workers);
-        }
-    });
-});
-
-//clears all of the workers from the database
-app.use('/clearWorkers', (req, res) => {
-	Worker.remove({}, (err) => {
-		if(err) {
-			res.send(err);
-		}
-    });
-    res.send('Removed workers');
-});
-
 //clears all people
 app.use('/clearPeople', (req, res) => {
 	Person.remove({}, (err) => {
@@ -235,6 +197,16 @@ app.use('/clearPeople', (req, res) => {
 		}
 	});
 	res.send('Removed people');
+});
+
+//clears all recipes
+app.use('/clearRecipes', (req, res) => {
+	Recipe.remove({}, (err) => {
+		if(err) {
+			res.send(err);
+		}
+	});
+	res.send('Removed recipes');
 });
 
 app.listen(3000,  () => {
