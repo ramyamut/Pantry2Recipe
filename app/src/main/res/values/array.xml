@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="result_array">
+        <item>Tested Positive</item>
+        <item>Tested Negative</item>
+        <item>No results yet</item>
+    </string-array>
+
+</resources>
