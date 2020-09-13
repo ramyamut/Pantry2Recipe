@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+
+    <string-array name="cuisine_array">
+
+        <item>East Asian</item>
+
+        <item>Indian</item>
+
+        <item>Italian</item>
+
+        <item>Mexican</item>
+    </string-array>
+</resources>
